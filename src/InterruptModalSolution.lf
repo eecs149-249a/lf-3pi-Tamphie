@@ -1,0 +1,102 @@
+target C {
+    platform: {
+      name: "rp2040",
+      board: "pololu_3pi_2040_robot"
+    },
+    threading: false,
+    keepalive: true
+  }
+  
+  import Display from "lib/Display.lf"
+  
+  
+  preamble {=
+    #include <stdio.h>
+    #include <pico/stdlib.h>
+    #include <hardware/gpio.h>
+    void callback(uint gpio, uint32_t event_mask);
+  
+  =}
+  
+  reactor Count{
+    input drive:bool
+    output tag:bool 
+
+  initial mode UP{
+    reaction(drive) ->DOWN,tag {=
+    if (drive->value) {
+        lf_set_mode(DOWN);
+        lf_set(tag,false);
+        }
+    =}
+  }
+
+  mode DOWN{
+    reaction(drive)->UP,tag {=
+      if (!drive->value) {
+        lf_set(tag,true);
+        lf_set_mode(UP);}
+    =}
+  
+  }
+}
+
+  main reactor {
+    display = new Display()
+    count = new Count()
+  
+    preamble {=
+    
+        instant_t t=0;
+        instant_t t2=0;
+
+        static void* action;
+        void callback(uint gpio, uint32_t event_mask){
+            t=t2;
+            t2=lf_time_physical()/1000000;
+            if(t2-t>200) {
+                lf_schedule(action,0);
+            }
+        }
+            
+    =}
+
+    state drive:bool = false
+    
+    physical action a
+  
+  
+  
+    reaction(startup)-> a {=
+        gpio_set_irq_enabled_with_callback(25, 0x4u ,true , callback);
+        action = a;
+    =}
+
+    reaction(a) ->count.drive{=
+            lf_set(count.drive,self->drive);
+            self->drive = !self->drive;
+    =}
+
+    timer t1(0,1 sec)
+    timer t2(0,2 sec)
+    state number:float = 0
+    
+  reaction(t1, count.tag) -> display.line0,display.line2{=
+    static char buf0[17];
+    if(count.tag->value) {
+      self->number++;
+      lf_set(display.line2, "Happy MidAutumn Festival!");
+    }
+    snprintf(buf0, 17, "x:%2.4f", self->number);
+    lf_set(display.line0, buf0);
+  =}
+
+  reaction(t2, count.tag) -> display.line0{=
+    static char buf0[17];
+    if(!count.tag->value) {
+      self->number--;
+    }
+    snprintf(buf0, 17, "x:%2.4f", self->number);
+    lf_set(display.line0, buf0);
+  =}
+  }

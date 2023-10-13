@@ -1,0 +1,47 @@
+/**
+ * Blink the default LED on the
+ * <a href="https://www.pololu.com/docs/0J86">Pololu 3pi+ 2040 robot</a>.
+ * @author Abhi Gundrala
+ * @author Edward A. Lee
+ */
+ target C {
+  platform: {
+    name: "rp2040",
+    board: "pololu_3pi_2040_robot"
+  },
+  threading: false,
+}
+import Display from "lib/Display.lf"
+
+preamble {=
+  #include <stdio.h>
+  #include <pico/stdlib.h>
+  #include <hardware/gpio.h>
+  //#include <pololu_3pi_2040_robot.h>
+=}
+
+
+main reactor {
+  d = new Display()
+  timer t(0, 250 ms);
+  
+
+  reaction(startup) {=
+    gpio_init(PICO_DEFAULT_LED_PIN);
+    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_IN);
+  =}
+  reaction(t) -> d.line0{=
+    uint gpio = PICO_DEFAULT_LED_PIN;
+    uint32_t *gpio_in = (uint32_t *)0xd0000004;
+    uint32_t mask = 1ul << gpio;
+    uint32_t right = *gpio_in;
+    bool answer = !!(mask & right);
+    //static  s1 = "The button is pushed";
+    //static char s2 = "The button is not pushed";
+    if(answer)
+      lf_set(d.line0, "is not pushed");
+    else
+      lf_set(d.line0, "is pushed");
+    
+  =}
+}

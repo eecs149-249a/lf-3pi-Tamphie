@@ -1,0 +1,117 @@
+/**
+ * Template for robot driving lab exercises.
+ * This template just periodically switches between a
+ * STOPPED and a DRIVING mode, updating the LCD display
+ * on each change of mode.
+ */
+ target C {
+    platform: {
+      name: "rp2040",
+      board: "pololu_3pi_2040_robot"
+    },
+    threading: false,
+  }
+  
+  import Display from "lib/Display.lf"
+  import Motors from "lib/Motors.lf"
+  import AngleToDistance from "lib/RobotEncoderSolution.lf"
+  import GyroAngle from "lib/IMU.lf"
+  import Bump from "lib/Bump.lf"
+ 
+  reactor Robot {
+    input drive:bool       // Toggle mode.
+    input avoid:bool
+    output notify:string   // Notify of mode change.
+    motors = new Motors();
+    reaction(startup) -> notify {=
+      lf_set(notify, "INIT");
+    =}
+
+    initial mode DRIVING {
+      reaction(drive,avoid) -> Turn, Avoid, notify,motors.left_power,motors.right_power {=
+        lf_set(motors.left_power,0.5f);
+        lf_set(motors.right_power,0.5f);
+        if (avoid->value) {
+            lf_set_mode(Avoid);
+            lf_set(notify, "Avoid");
+        }
+        if (!drive->value) {
+          lf_set_mode(Turn);
+          lf_set(notify, "Turn");
+        } 
+      =}
+    }
+    mode Turn {
+      reaction(drive,avoid) -> DRIVING, Avoid, notify,motors.left_power,motors.right_power {=
+        lf_set(motors.left_power,0.1f);
+        lf_set(motors.right_power,0.0f);
+        if (avoid->value) {
+            lf_set_mode(Avoid);
+            lf_set(notify, "Avoid");
+        }
+        if (drive->value) {
+          lf_set_mode(DRIVING);
+          lf_set(notify, "DRIVING");
+        } 
+      
+      =}
+    }
+    mode Avoid {
+        reaction(avoid,drive) -> DRIVING, Turn, notify,motors.left_power,motors.right_power {=
+          lf_set(motors.left_power,-0.5f);
+          lf_set(motors.right_power,-0.5f);
+          if (!avoid->value) {
+            if(drive->value) {
+                lf_set_mode(DRIVING);
+                lf_set(notify, "DRIVING");
+            }  else{
+                lf_set_mode(Turn);
+                lf_set(notify, "Turn");
+            }
+          }
+        =}
+    }
+    
+  }
+  
+  main reactor {
+    timer t(0, 1 ms);
+    state drive:bool = true;
+    state Angle:float = 0;
+    state cal:int = 0;
+    robot = new Robot();
+    display = new Display();
+    angle = new GyroAngle();
+    distance = new AngleToDistance();
+    bump = new Bump();
+
+
+    reaction(t,angle.z,distance.right,bump.left,bump.right) -> robot.drive,robot.avoid{=
+        float angles = angle.z -> value;
+        float distances = distance.right -> value;
+        lf_set(robot.drive, self->drive);
+        self->Angle += angles * 0.1;
+        bool Bump = bump.left->value || bump.right->value;
+        // Toggle the drive state variable for next time.
+        if(Bump) {
+            self->cal+=1;
+            lf_set(robot.avoid, true);
+            if(self->cal > 400) {
+                self->cal = 0;
+                lf_set(bump.left, false);
+                lf_set(bump.right, false);
+                lf_set(robot.avoid, false);
+            }
+        }
+        if(distances >= 50.0) {
+            self->drive = !self->drive;
+            lf_set(distance.right, 0);
+        }
+        if(self->Angle >= 90) {
+            self->Angle = 0.0;
+            self->drive = !self->drive;
+        }
+    =}
+    robot.notify -> display.line0;
+  }
+  

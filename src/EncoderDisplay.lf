@@ -4,7 +4,7 @@
  * @author Abhi Gundrala
  * @author Edward A. Lee
  */
-target C {
+ target C {
   platform: {
     name: "rp2040",
     board: "pololu_3pi_2040_robot"
@@ -13,31 +13,28 @@ target C {
 }
 
 import Display from "lib/Display.lf"
-import Encoders from "lib/Encoders.lf"
+import AngleToDistance from "lib/RobotEncoderSolution.lf"
+
 
 main reactor {
-  display = new Display()
-  encoder = new Encoders()
-
-  timer t(0, 1s)
-
-  reaction(t) -> encoder.trigger {=
-    lf_set(encoder.trigger, true);
-  =}
+  display = new Display();
+  distance = new AngleToDistance();
 
   reaction(startup) -> display.line0 {=
-    lf_set(display.line0, "ENCODERS:");
-  =}
-
-  reaction(encoder.left) -> display.line1 {=
-    static char buf[17];
-    snprintf(buf, 17, "L: %d", encoder.left->value);
-    lf_set(display.line1, buf);
+    lf_set(display.line0, "Distances:");
   =}
   
-  reaction(encoder.right) -> display.line2 {=
+  
+
+  reaction(distance.left) -> display.line1 {=
     static char buf[17];
-    snprintf(buf, 17, "R: %d", encoder.right->value);
+    snprintf(buf, 17, "L: %f cm", distance.left->value);
+    lf_set(display.line1, buf);
+  =}
+
+  reaction(distance.right) -> display.line2 {=
+    static char buf[17];
+    snprintf(buf, 17, "R: %f cm", distance.right->value);
     lf_set(display.line2, buf); 
   =}
 }
