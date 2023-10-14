@@ -1,0 +1,124 @@
+target C {
+    platform: {
+      name: "rp2040",
+      board: "pololu_3pi_2040_robot"
+    },
+    threading: false,
+  }
+
+  import Display from "lib/Display.lf"
+  import Motors from "lib/Motors.lf"
+  import GyroAngle from "lib/IMU.lf"
+  import Accelerometer from "lib/IMU.lf"
+  import MotorsWithFeedback from "lib/MotorsWithFeedback.lf"
+  import Encoders from "lib/Encoders.lf"
+
+
+
+
+  reactor Robot{
+    input drive:int
+    motors = new Motors ()
+    acce = new Accelerometer ()
+    angle = new GyroAngle ()
+    mf = new MotorsWithFeedback()
+    e0 = new Encoders()
+    d0 = new Display()
+  
+  state Angle:float = 0;
+  state gain:float = 0.5;
+  state angle_pre: float 
+  timer t1(0, 10ms);
+  timer t(0, 50 ms)
+
+  e0.right -> mf.right;
+  e0.left -> mf.left;
+
+
+  reaction(t1)-> angle.trigger ,acce.trigger{=
+    lf_set(angle.trigger,true);
+    lf_set(acce.trigger,true);
+
+  =}
+
+  
+ 
+    reaction(t) -> e0.trigger {=
+     lf_set(e0.trigger, true);
+ =}
+
+    reaction (acce.x,acce.y) -> d0.line1,d0.line2{=
+        static char buf0[17];
+        snprintf(buf0, 17, "roll:%f", acce.y->value);
+        lf_set(d0.line1,buf0);
+        
+        static char buf1[17];
+        snprintf(buf1, 17, "pitch:%f", acce.x->value);
+        lf_set(d0.line2,buf1);
+    =}
+
+  initial mode ROLL{
+    reaction(acce.y,acce.x)-> d0.line0, motors.left_power,motors.right_power,DRIVING,TURN{=
+    lf_set(d0.line0, "ROLL");
+
+   
+    if(acce.y->value < 0){
+    lf_set(motors.left_power, 0.1);
+    lf_set(motors.right_power,-0.1);
+    }
+
+    else if(acce.y->value > 0){
+
+    lf_set(motors.left_power,-0.1);
+    lf_set(motors.right_power,0.1);
+    }
+    if(acce.y->value < 0.05 && acce.y->value > -0.05 ){
+        if(acce.x > 0){
+            lf_set_mode(DRIVING);
+            lf_set(motors.left_power, 0); 
+            lf_set(motors.right_power, 0); 
+        }
+        else 
+            lf_set_mode(TURN);
+    }
+    
+    =}
+  }
+
+  mode DRIVING{
+    reaction(acce.x,angle.z)-> d0.line0, mf.left_speed, mf.right_speed,TURN {=
+    if(acce.x>0){
+    lf_set(mf.left_speed, 0.2*acce.x->value); 
+    lf_set(mf.right_speed, 0.2*acce.x->value); 
+    lf_set(d0.line0, "DriveUp");
+    }
+    else{
+        lf_set(mf.left_speed, -0.2*acce.x->value); 
+        lf_set(mf.right_speed, -0.2*acce.x->value); 
+        lf_set(d0.line0, "DriveDown");
+    }
+    if(acce.x->value <0.02){
+        lf_set_mode(TURN);
+        self->angle_pre = angle.z->value;
+    }
+  =}
+  
+  
+  }
+
+  mode TURN{
+    reaction(angle.z)->d0.line0, motors.left_power,motors.right_power,DRIVING{=
+        lf_set(d0.line0, "TURN");
+        lf_set(motors.left_power,0.1);
+        lf_set(motors.right_power,-0.1);
+
+        
+        if((angle.z->value - self->angle_pre) > 180 || (angle.z->value - self->angle_pre) <-180){
+            lf_set_mode(DRIVING);
+        }
+  =}
+}
+  }
+main reactor{
+    robot = new Robot();
+}
