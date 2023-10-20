@@ -46,8 +46,8 @@
         // lf_set(disp.line3, "centerf");
         self->Angles = angle.z -> value;
         self->Angle += self->Angles * 0.001;
-        lf_set(motors.left_power,0.1f);
-        lf_set(motors.right_power,0.1f);
+        lf_set(motors.left_power,0.2f);
+        lf_set(motors.right_power,0.2f);
         if (drive->value == 1) {
             self->Angle = 0;
             self->flag = false;
@@ -96,8 +96,8 @@
           self->flag = true;
         }
         if(!self->flag || drive->value == 1) {
-          lf_set(motors.left_power,-0.1f);
-          lf_set(motors.right_power,-0.2f);
+          lf_set(motors.left_power,-0.03f);
+          lf_set(motors.right_power,-0.05f);
         }
         if (drive->value == 0 && self->flag) {
             self->Angle = 0;
@@ -121,8 +121,8 @@
           self->flag = true;
         }
         if(!self->flag || drive->value == 2) {
-          lf_set(motors.left_power,-0.2f);
-          lf_set(motors.right_power,-0.1f);
+          lf_set(motors.left_power,-0.05f);
+          lf_set(motors.right_power,-0.03f);
         }
         if (drive->value == 0 && self->flag) {
             self->Angle = 0;
