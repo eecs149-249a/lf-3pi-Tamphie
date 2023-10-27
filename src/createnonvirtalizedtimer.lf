@@ -1,0 +1,51 @@
+/**
+ * This simple demonstration program prints logical time, physical time,
+ * and lag (physical time minus logical time) once per second.
+ * @author Abhi Gundrala
+ */
+ target C {
+    platform: "RP2040",
+    threading: false,
+    keepalive: true
+  }
+  
+  //import Display from "lib/Display.lf"
+
+  preamble {=
+      #include <stdio.h>
+      #include "pico/stdlib.h"
+      #define ALARM_NUM 0
+      #define ALARM_IRQ TIMER_IRQ_0
+  =}
+
+
+  main reactor {
+
+    preamble{=
+    void lab5_timer_irq_handler(void){
+        hw_clear_bits(&timer_hw->intr,1u<<ALARM_NUM);
+        printf("Timer Fired!\n");
+    }
+    void virtual_timer_init(void){
+        hw_set_bits(&timer_hw->inte,1u<<ALARM_NUM);
+        irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
+        irq_set_enabled(ALARM_IRQ,true);
+    }
+    uint32_t virtual_timer_start(uint32_t microseconds){
+        uint64_t target = timer_hw->timerawl + microseconds;
+        timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
+    }
+    =}
+          //d = new Display()
+        //timer print_hw_timer(0, 1 sec); 
+    reaction(startup) {=
+        printf("hello");
+        stdio_init_all();
+        virtual_timer_init();
+        virtual_timer_start(10000000);
+            
+      //uint32_t lo = timer_hw->timelr;
+          
+     =}
+
+  }

@@ -1,0 +1,33 @@
+/**
+ * This simple demonstration program prints logical time, physical time,
+ * and lag (physical time minus logical time) once per second.
+ * @author Abhi Gundrala
+ */
+ target C {
+    platform: {
+      name: "rp2040",
+      board: "pololu_3pi_2040_robot"
+    },
+    threading: false,
+    timeout: 60 sec,
+  }
+  
+  import Display from "lib/Display.lf"
+
+  preamble {=
+      #include <stdio.h>
+      #include "pico/stdlib.h"
+  =}
+
+
+  main reactor {
+        d = new Display()
+        timer t1(0, 1 sec); 
+        reaction(t1) -> d.line0{=
+          static char buf0[17];
+          uint32_t lo = timer_hw->timelr;
+          snprintf(buf0, 17, "x:%d", lo);
+          lf_set(d.line0, buf0); 
+         =}
+  }
+  
