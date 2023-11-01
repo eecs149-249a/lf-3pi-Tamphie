@@ -14,13 +14,7 @@ preamble {=
 main reactor {
   preamble {=
 
-    void callback_t(void){
-      bool led_state = false;
-      led_state = !led_state;
-      printf("LED State: %b\n", led_on);
-      gpio_put(PICO_DEFAULT_LED_PIN, !self->led_on);
-    }
-
+  
     typedef void (*virtual_timer_callback_t)(void);
  
     // Definition of linked list node 
@@ -100,21 +94,40 @@ main reactor {
     *********************************************/
 
     /* You can also create your own linked list functions here. */
+    
+    
+    static bool led_state = true;
 
-  
+    virtual_timer_callback_t callback_t(void){
+      led_state = !led_state;
+      printf("LED STATE:%b\n",led_state);
+      gpio_put(PICO_DEFAULT_LED_PIN, led_state);
+    }
+
 
     void lab5_timer_irq_handler(void){
         hw_clear_bits(&timer_hw->intr,1u<<ALARM_NUM);
-        printf("Timer Fired!\n");
+        //printf("Timer Fired!\n");
+        node_t * current = linked_list;
+        current->callback();
+        free(current);
     }
     void virtual_timer_init(void){
         hw_set_bits(&timer_hw->inte,1u<<ALARM_NUM);
         irq_set_exclusive_handler(ALARM_IRQ,lab5_timer_irq_handler);
         irq_set_enabled(ALARM_IRQ,true);
     }
-    uint32_t virtual_timer_start(uint32_t microseconds){
+    uint32_t virtual_timer_start(uint32_t microseconds,virtual_timer_callback_t cb){
         uint64_t target = timer_hw->timerawl + microseconds;
         timer_hw->alarm[ALARM_NUM] = (uint32_t) target;
+
+        node_t* my_timer_node = malloc(sizeof(node_t));
+        my_timer_node->timer_value = microseconds;
+        my_timer_node->callback = cb;
+        list_insert_sorted(my_timer_node);
+     
+     
+        return target;
     }
 
     uint32_t virtual_timer_start_repeated(uint32_t microseconds, virtual_timer_callback_t cb){
@@ -135,16 +148,8 @@ main reactor {
       gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
       gpio_put(25, true);
       virtual_timer_init();
-      virtual_timer_start(20000000);
+      virtual_timer_start(15000000,callback_t);
       
-
-      node_t* my_timer_node = malloc(sizeof(node_t));
-      my_timer_node->timer_value = 20000000;
-      my_timer_node->callback = callback_t;
-      list_insert_sorted(my_timer_node);
-      return
-      my_timer_node->callback();
-      free(my_timer_node)
 
   =}
   
